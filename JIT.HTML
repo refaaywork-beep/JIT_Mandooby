@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JIT Task Management</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #c0392b;
+            --light: #ecf0f1;
+            --white: #ffffff;
+            --text: #333;
+            --radius: 8px;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; background: #f4f6f8; color: var(--text); padding-bottom: 20px; }
+
+        /* UTILITIES */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .between { justify-content: space-between; align-items: center; }
+        .text-sm { font-size: 0.85rem; color: #666; }
+        .font-bold { font-weight: bold; }
+        .text-center { text-align: center; }
+        .text-danger { color: var(--danger); font-size: 0.9rem; margin-top: 5px; }
+
+        /* BUTTONS & INPUTS */
+        button { padding: 12px 15px; border: none; border-radius: var(--radius); font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 1rem; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); width: auto; }
+        
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: var(--radius); margin-bottom: 15px; font-size: 1rem; }
+
+        /* HEADER */
+        header { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        header h2 { margin: 0; font-size: 1.2rem; }
+
+        /* CARDS */
+        .card { background: white; padding: 15px; border-radius: var(--radius); box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px; border-left: 4px solid #ccc; }
+        .card.pending { border-left-color: var(--warning); }
+        .card.approved { border-left-color: var(--accent); }
+        .card.completed { border-left-color: var(--success); }
+        .card.rejected { border-left-color: var(--danger); }
+
+        /* LOGIN PAGE SPECIFIC */
+        #login-view { height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 20px; background: var(--primary); }
+        .login-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); width: 100%; max-width: 400px; margin: 0 auto; }
+        .login-hint { background: #e8f4fd; padding: 15px; border-radius: 6px; margin-top: 20px; font-size: 0.8rem; color: #2980b9; max-height: 200px; overflow-y: auto; }
+
+        /* DASHBOARD STATS (ADMIN ONLY) */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: var(--radius); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+
+        /* MODAL */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; justify-content: center; align-items: flex-end; }
+        .modal-content { background: white; width: 100%; padding: 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        /* FAB */
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: var(--accent); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; }
+    </style>
+</head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2c3e50">
+
+<body>
+
+    <!-- ================= VIEW 1: LOGIN PAGE ================= -->
+    <div id="login-view">
+        <div class="login-box">
+            <h2 class="text-center" style="color:var(--primary); margin-bottom: 20px;">JIT Trading Login</h2>
+            
+            <form onsubmit="handleLogin(event)">
+                <label class="text-sm">Email Address</label>
+                <input type="email" id="email-input" placeholder="name@jitfortrading.com" required>
+
+                <label class="text-sm">Password</label>
+                <input type="password" id="password-input" placeholder="••••••" required>
+
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+            
+            <div id="login-error" class="text-danger text-center hidden">Invalid email or password</div>
+
+            <!-- Hint for testing -->
+            <div class="login-hint">
+                <strong>Demo Accounts (Pass: 123456)</strong><br><br>
+                <b>Admin:</b> admin@jitfortrading.com<br>
+                <b>IT:</b> it@jitfortrading.com<br><br>
+                <b>Depts:</b><br>
+                hr@jitfortrading.com<br>
+                finance@jitfortrading.com<br>
+                marketing@jitfortrading.com<br><br>
+                <b>Reps:</b><br>
+                ahmed@jitfortrading.com (Ahmed)<br>
+                mahmoud@jitfortrading.com (Mahmoud)<br>
+                mohamed@jitfortrading.com (Mohamed)<br>
+                gohary@jitfortrading.com (Gohary)
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW 2: ADMIN DASHBOARD ================= -->
+    <div id="admin-view" class="hidden">
+        <header>
+            <div>
+                <h2 id="admin-header-title">Admin Dashboard</h2>
+                <span class="text-sm" style="color: #ccc;" id="admin-user-email"></span>
+            </div>
+            <button class="btn-outline" style="border-color:white; color:white;" onclick="logout()">Logout</button>
+        </header>
+
+        <div class="p-4">
+            <!-- Stats Section -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-num" id="stat-pending">0</div>
+                    <div class="text-sm">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num" id="stat-active">0</div>
+                    <div class="text-sm">Active</div>
+                </div>
+            </div>
+
+            <h3 class="font-bold" style="margin-bottom:10px;">Pending Requests</h3>
+            <div id="admin-list"></div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW 3: REQUESTER DASHBOARD ================= -->
+    <div id="requester-view" class="hidden">
+        <header>
+            <div>
+                <h2>My Requests</h2>
+                <span class="text-sm" id="dept-email"></span>
+            </div>
+            <button class="btn-outline" style="border-color:white; color:white;" onclick="logout()">Logout</button>
+        </header>
+
+        <div class="p-4" id="requester-list"></div>
+        <div class="fab" onclick="openRequestModal()">+</div>
+    </div>
+
+    <!-- ================= VIEW 4: REPRESENTATIVE DASHBOARD ================= -->
+    <div id="rep-view" class="hidden">
+        <header>
+            <div>
+                <h2>My Tasks</h2>
+                <span class="text-sm" id="rep-email"></span>
+            </div>
+            <button class="btn-outline" style="border-color:white; color:white;" onclick="logout()">Logout</button>
+        </header>
+
+        <div class="p-4" id="rep-list"></div>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+    
+    <!-- Create Request Modal -->
+    <div id="request-modal" class="modal hidden" onclick="if(event.target === this) closeModal('request-modal')">
+        <div class="modal-content">
+            <h3>Create New Request</h3>
+            <input type="text" id="req-title" placeholder="Request Title">
+            <textarea id="req-desc" rows="3" placeholder="Description"></textarea>
+            <!-- Department is auto-detected based on login, but we display it -->
+            <label class="text-sm">Requesting as:</label>
+            <input type="text" id="req-dept-display" readonly style="background:#eee;">
+            <input type="hidden" id="req-dept">
+            
+            <button class="btn-primary" onclick="submitRequest()">Submit Request</button>
+        </div>
+    </div>
+
+    <!-- Admin Action Modal -->
+    <div id="admin-action-modal" class="modal hidden" onclick="if(event.target === this) closeModal('admin-action-modal')">
+        <div class="modal-content">
+            <h3>Manage Request</h3>
+            <p id="admin-modal-desc" class="text-sm"></p>
+            <label class="text-sm">Assign to Representative:</label>
+            <select id="admin-assign-select">
+                <!-- Populated dynamically or hardcoded below -->
+                <option value="1">Ahmed Moneim</option>
+                <option value="2">Mahmoud</option>
+                <option value="3">Mohamed</option>
+                <option value="4">Gohary</option>
+            </select>
+            <div class="flex">
+                <button class="btn-success" onclick="adminAction('approve')">Approve & Assign</button>
+                <button class="btn-danger" onclick="adminAction('reject')">Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rep Update Modal -->
+    <div id="rep-update-modal" class="modal hidden" onclick="if(event.target === this) closeModal('rep-update-modal')">
+        <div class="modal-content">
+            <h3>Update Task</h3>
+            <p id="rep-modal-title" class="font-bold"></p>
+            <textarea id="rep-note" rows="3" placeholder="Write update/note here..."></textarea>
+            <button class="btn-primary" onclick="repAction('update')">Submit Update</button>
+            <button class="btn-success" onclick="repAction('complete')">Mark Complete</button>
+        </div>
+    </div>
+
+    <script>
+        // --- USER DATABASE ---
+        // Each user has a specific ID (for reps) or email (for depts)
+        const USERS = {
+            'admin@jitfortrading.com': { role: 'admin', password: '123456', name: 'Admin' },
+            'it@jitfortrading.com': { role: 'admin', password: '123456', name: 'IT Support' },
+            
+            'hr@jitfortrading.com': { role: 'dept', password: '123456', name: 'HR' },
+            'finance@jitfortrading.com': { role: 'dept', password: '123456', name: 'Finance' },
+            'marketing@jitfortrading.com': { role: 'dept', password: '123456', name: 'Marketing' },
+            
+            'ahmed@jitfortrading.com': { role: 'rep', id: 1, password: '123456', name: 'Ahmed Moneim' },
+            'mahmoud@jitfortrading.com': { role: 'rep', id: 2, password: '123456', name: 'Mahmoud' },
+            'mohamed@jitfortrading.com': { role: 'rep', id: 3, password: '123456', name: 'Mohamed' },
+            'gohary@jitfortrading.com': { role: 'rep', id: 4, password: '123456', name: 'Gohary' }
+        };
+
+        let currentUser = null;
+        let currentUserEmail = null;
+
+        // --- DATA SIMULATION ---
+        const DB_KEY = 'company_requests_v4';
+        
+        if (!localStorage.getItem(DB_KEY)) {
+            const seed = [
+                { 
+                    id: 101, title: 'Office Supplies', dept: 'HR', 
+                    desc: 'Need paper and ink for the printer.', 
+                    status: 'Pending', createdBy: 'hr@jitfortrading.com', assignedTo: null, updates: [] 
+                },
+                { 
+                    id: 102, title: 'Client Lunch', dept: 'Marketing', 
+                    desc: 'Budget approval for client visit.', 
+                    status: 'In Progress', createdBy: 'marketing@jitfortrading.com', assignedTo: 1, updates: ['Working on budget - Ahmed'] 
+                }
+            ];
+            localStorage.setItem(DB_KEY, JSON.stringify(seed));
+        }
+
+        function getRequests() { return JSON.parse(localStorage.getItem(DB_KEY)); }
+        function saveRequests(reqs) { localStorage.setItem(DB_KEY, JSON.stringify(reqs)); }
+
+        // --- LOGIN LOGIC ---
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+            const errorMsg = document.getElementById('login-error');
+
+            const user = USERS[email];
+
+            if (user && user.password === password) {
+                currentUser = user; // Store full user object (includes ID for Reps)
+                currentUserEmail = email;
+                errorMsg.classList.add('hidden');
+                
+                document.getElementById('login-view').classList.add('hidden');
+                
+                if (user.role === 'admin') {
+                    loadAdminView(user.name);
+                } else if (user.role === 'rep') {
+                    loadRepView();
+                } else {
+                    loadRequesterView();
+                }
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            currentUserEmail = null;
+            document.getElementById('email-input').value = '';
+            document.getElementById('password-input').value = '';
+            document.getElementById('login-error').classList.add('hidden');
+            
+            document.getElementById('admin-view').classList.add('hidden');
+            document.getElementById('requester-view').classList.add('hidden');
+            document.getElementById('rep-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        let selectedRequestId = null;
+
+        // --- VIEW 1 & 2: ADMIN & IT ---
+        function loadAdminView(roleName) {
+            document.getElementById('admin-view').classList.remove('hidden');
+            document.getElementById('admin-header-title').innerText = roleName + ' Dashboard';
+            document.getElementById('admin-user-email').innerText = currentUserEmail;
+            renderAdminList();
+        }
+
+        function renderAdminList() {
+            const reqs = getRequests();
+            const list = document.getElementById('admin-list');
+            list.innerHTML = '';
+
+            // Stats
+            const pending = reqs.filter(r => r.status === 'Pending').length;
+            const active = reqs.filter(r => ['In Progress', 'Approved'].includes(r.status)).length;
+            document.getElementById('stat-pending').innerText = pending;
+            document.getElementById('stat-active').innerText = active;
+
+            const displayReqs = reqs.filter(r => r.status === 'Pending' || r.status === 'Approved' || r.status === 'In Progress');
+
+            displayReqs.forEach(r => {
+                // Find Rep Name for display
+                const repUser = Object.values(USERS).find(u => u.id === r.assignedTo);
+                const repName = repUser ? repUser.name : 'Unassigned';
+
+                const div = document.createElement('div');
+                div.className = `card ${r.status.toLowerCase()}`;
+                div.innerHTML = `
+                    <div class="flex between">
+                        <strong>${r.title}</strong>
+                        <span class="text-sm">${r.status}</span>
+                    </div>
+                    <div class="text-sm">Dept: ${r.dept} | From: ${r.createdBy.split('@')[0]}</div>
+                    <div class="text-sm">Assigned: ${repName}</div>
+                    
+                    ${r.status === 'Pending' ? 
+                        `<button class="btn-primary" style="margin-top:10px;" onclick="openAdminModal(${r.id})">Manage</button>` : 
+                        `<div class="text-sm" style="margin-top:10px; color:#666;">Managed by Rep</div>`
+                    }
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openAdminModal(id) {
+            selectedRequestId = id;
+            const reqs = getRequests();
+            const r = reqs.find(x => x.id === id);
+            document.getElementById('admin-modal-desc').innerText = r.desc;
+            document.getElementById('admin-action-modal').classList.remove('hidden');
+        }
+
+        function adminAction(action) {
+            const reqs = getRequests();
+            const idx = reqs.findIndex(x => x.id === selectedRequestId);
+            
+            if (action === 'approve') {
+                const repId = parseInt(document.getElementById('admin-assign-select').value);
+                reqs[idx].status = 'Approved';
+                reqs[idx].assignedTo = repId;
+            } else {
+                reqs[idx].status = 'Rejected';
+            }
+            saveRequests(reqs);
+            closeModal('admin-action-modal');
+            renderAdminList();
+        }
+
+        // --- VIEW 3: REQUESTER (DEPARTMENTS) ---
+        function loadRequesterView() {
+            document.getElementById('requester-view').classList.remove('hidden');
+            document.getElementById('dept-email').innerText = currentUserEmail;
+            renderRequesterList();
+        }
+
+        function renderRequesterList() {
+            const reqs = getRequests();
+            const list = document.getElementById('requester-list');
+            list.innerHTML = '';
+            
+            // Filter strictly by the logged in email
+            const myReqs = reqs.filter(r => r.createdBy === currentUserEmail);
+
+            myReqs.forEach(r => {
+                const div = document.createElement('div');
+                div.className = `card ${r.status.toLowerCase()}`;
+                div.innerHTML = `
+                    <strong>${r.title}</strong>
+                    <p class="text-sm">${r.desc}</p>
+                    <div class="flex between" style="margin-top:10px;">
+                        <span class="text-sm">Status: <b>${r.status}</b></span>
+                        <span class="text-sm">${r.dept}</span>
+                    </div>
+                    ${r.updates.length > 0 ? `<div class="text-sm" style="background:#f9f9f9; padding:5px; margin-top:5px; font-style:italic;">Last Update: ${r.updates[r.updates.length-1]}</div>` : ''}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openRequestModal() {
+            document.getElementById('req-dept-display').value = currentUser.name;
+            document.getElementById('req-dept').value = currentUser.name;
+            document.getElementById('request-modal').classList.remove('hidden');
+        }
+
+        function submitRequest() {
+            const title = document.getElementById('req-title').value;
+            const desc = document.getElementById('req-desc').value;
+            const dept = document.getElementById('req-dept').value;
+
+            if(!title || !desc) return alert("Please fill all fields");
+
+            const reqs = getRequests();
+            reqs.push({
+                id: Date.now(),
+                title, desc, dept,
+                status: 'Pending',
+                createdBy: currentUserEmail,
+                assignedTo: null,
+                updates: []
+            });
+            saveRequests(reqs);
+            
+            closeModal('request-modal');
+            document.getElementById('req-title').value = '';
+            document.getElementById('req-desc').value = '';
+            renderRequesterList();
+        }
+
+        // --- VIEW 4: REPRESENTATIVE ---
+        function loadRepView() {
+            document.getElementById('rep-view').classList.remove('hidden');
+            document.getElementById('rep-email').innerText = currentUser.name;
+            renderRepList();
+        }
+
+        function renderRepList() {
+            const reqs = getRequests();
+            const list = document.getElementById('rep-list');
+            list.innerHTML = '';
+            
+            // Filter based on the specific Rep ID (1, 2, 3, or 4)
+            const myTasks = reqs.filter(r => r.assignedTo === currentUser.id && r.status !== 'Rejected');
+
+            if(myTasks.length === 0) {
+                list.innerHTML = '<div class="text-center text-sm">No tasks assigned to you.</div>';
+                return;
+            }
+
+            myTasks.forEach(r => {
+                const div = document.createElement('div');
+                div.className = `card ${r.status.toLowerCase()}`;
+                div.innerHTML = `
+                    <strong>${r.title}</strong>
+                    <p class="text-sm">${r.desc}</p>
+                    <div class="text-sm" style="margin-bottom:10px;">Status: ${r.status}</div>
+                    <button class="btn-primary" onclick="openRepModal(${r.id})">Update Task</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openRepModal(id) {
+            selectedRequestId = id;
+            const reqs = getRequests();
+            const r = reqs.find(x => x.id === id);
+            document.getElementById('rep-modal-title').innerText = r.title;
+            document.getElementById('rep-update-modal').classList.remove('hidden');
+        }
+
+        function repAction(action) {
+            const note = document.getElementById('rep-note').value;
+            const reqs = getRequests();
+            const idx = reqs.findIndex(x => x.id === selectedRequestId);
+
+            if (action === 'update') {
+                if(!note) return alert("Please write an update");
+                reqs[idx].updates.push(`${currentUser.name}: ${note}`);
+                if(reqs[idx].status === 'Approved') reqs[idx].status = 'In Progress';
+            } else if (action === 'complete') {
+                reqs[idx].status = 'Completed';
+                reqs[idx].updates.push(`${currentUser.name} marked as Completed`);
+            }
+            
+            saveRequests(reqs);
+            closeModal('rep-update-modal');
+            document.getElementById('rep-note').value = '';
+            renderRepList();
+        }
+    </script>
+    <script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
